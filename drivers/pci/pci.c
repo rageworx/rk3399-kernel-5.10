@@ -49,7 +49,7 @@ EXPORT_SYMBOL(isa_dma_bridge_buggy);
 int pci_pci_problems;
 EXPORT_SYMBOL(pci_pci_problems);
 
-unsigned int pci_pm_d3hot_delay;
+unsigned int pci_pm_d3hot_delay = 100;
 
 static void pci_pme_list_scan(struct work_struct *work);
 
@@ -74,8 +74,10 @@ static void pci_dev_d3_sleep(struct pci_dev *dev)
 
 	if (delay) {
 		trace_android_rvh_pci_d3_sleep(dev, delay, &err);
-		if (err == -EOPNOTSUPP)
+		if (err == -EOPNOTSUPP) {
+			printk("delay %d ms\n", delay);
 			msleep(delay);
+		}
 	}
 }
 
@@ -1014,6 +1016,7 @@ static int pci_raw_set_power_state(struct pci_dev *dev, pci_power_t state)
 	u16 pmcsr;
 	bool need_restore = false;
 
+	pci_info(dev, "%s: enter\n", __func__);
 	/* Check if we're already there */
 	if (dev->current_state == state)
 		return 0;
@@ -1043,7 +1046,9 @@ static int pci_raw_set_power_state(struct pci_dev *dev, pci_power_t state)
 	   || (state == PCI_D2 && !dev->d2_support))
 		return -EIO;
 
+	pci_info(dev, "read pmcsr\n");
 	pci_read_config_word(dev, dev->pm_cap + PCI_PM_CTRL, &pmcsr);
+	pci_info(dev, "pmcsr = %d\n", pmcsr);
 	if (pmcsr == (u16) ~0) {
 		pci_err(dev, "can't change power state from %s to %s (config space inaccessible)\n",
 			pci_power_name(dev->current_state),
@@ -1076,7 +1081,9 @@ static int pci_raw_set_power_state(struct pci_dev *dev, pci_power_t state)
 	}
 
 	/* Enter specified state */
+	pci_info(dev, "write pmcsr to %d\n", pmcsr);
 	pci_write_config_word(dev, dev->pm_cap + PCI_PM_CTRL, pmcsr);
+	pci_info(dev, "write pmcsr successfully\n");
 
 	/*
 	 * Mandatory power management transition delays; see PCI PM 1.1
@@ -1087,7 +1094,10 @@ static int pci_raw_set_power_state(struct pci_dev *dev, pci_power_t state)
 	else if (state == PCI_D2 || dev->current_state == PCI_D2)
 		udelay(PCI_PM_D2_DELAY);
 
+	pci_info(dev, "read pmcsr again\n");
 	pci_read_config_word(dev, dev->pm_cap + PCI_PM_CTRL, &pmcsr);
+	pci_info(dev, "pmcsr = %d\n", pmcsr);
+
 	dev->current_state = (pmcsr & PCI_PM_CTRL_STATE_MASK);
 	if (dev->current_state != state)
 		pci_info_ratelimited(dev, "refused to change power state from %s to %s\n",
