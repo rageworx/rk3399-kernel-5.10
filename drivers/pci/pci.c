@@ -1325,12 +1325,13 @@ int pci_set_power_state(struct pci_dev *dev, pci_power_t state)
 	int error;
 
 	/* Bound the state we're entering */
+	pci_info(dev, "set power state to %d, no d1d2 = %d\n", state, dev->no_d1d2);
 	if (state > PCI_D3cold)
 		state = PCI_D3cold;
 	else if (state < PCI_D0)
 		state = PCI_D0;
-	else if ((state == PCI_D1 || state == PCI_D2) && pci_no_d1d2(dev))
-
+	else if ((state == PCI_D1 || state == PCI_D2) && pci_no_d1d2(dev)) {
+		pci_info(dev, "set power return\n");
 		/*
 		 * If the device or the parent bridge do not support PCI
 		 * PM, ignore the request if we're doing anything other
@@ -1338,7 +1339,7 @@ int pci_set_power_state(struct pci_dev *dev, pci_power_t state)
 		 * boot).
 		 */
 		return 0;
-
+	}
 	/* Check if we're already there */
 	if (dev->current_state == state)
 		return 0;
