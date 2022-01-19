@@ -32,6 +32,7 @@
 #include <linux/ratelimit.h>
 #include <linux/debugfs.h>
 #include <asm/sections.h>
+#include <linux/boardinfo.h>
 
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
@@ -332,7 +333,10 @@ void panic(const char *fmt, ...)
 		 */
 		if (panic_reboot_mode != REBOOT_UNDEFINED)
 			reboot_mode = panic_reboot_mode;
-		emergency_restart();
+		//emergency_restart();
+		pr_emerg("Restart pmic....\n");
+		pmic_restart();
+		mdelay(1000);
 	}
 #ifdef __sparc__
 	{
