@@ -2951,8 +2951,17 @@ static int mmc_blk_probe(struct mmc_card *card)
 	dev_set_drvdata(&card->dev, md);
 
 #if defined(CONFIG_MMC_DW_ROCKCHIP) || defined(CONFIG_MMC_SDHCI_OF_ARASAN)
-	if (card->type == MMC_TYPE_MMC)
+	if ((card->type == MMC_TYPE_MMC) &&
+			strstr(saved_command_line, "storagemedia=emmc")) {
+		pr_info("%s is emmc_disk0(emmc)\n", mmc_card_id(card));
 		this_card = card;
+	}
+
+	if ((card->type == MMC_TYPE_SD) &&
+			strstr(saved_command_line, "storagemedia=sd")) {
+		pr_info("%s is emmc_disk1(sd)\n", mmc_card_id(card));
+		this_card = card;
+	}
 #endif
 
 	if (mmc_add_disk(md))
