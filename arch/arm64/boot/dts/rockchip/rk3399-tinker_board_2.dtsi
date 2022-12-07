@@ -23,7 +23,7 @@
 	};
 
 	chosen {
-		bootargs = "earlycon=uart8250,mmio32,0xff1a0000 console=ttyFIQ0 rw rootfstype=ext4 rootwait coherent_pool=1m";
+		bootargs = "console=tty0 earlycon=uart8250,mmio32,0xff1a0000 console=ttyFIQ0 rw rootfstype=ext4 rootwait coherent_pool=1m";
 	};
 
 	reserved-memory {
