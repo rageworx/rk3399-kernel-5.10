@@ -55,6 +55,7 @@
 		interrupts = <GIC_SPI 150 IRQ_TYPE_LEVEL_HIGH 0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&uart2c_xfer>;
+		status = "okay";
 	};
 
 	cif_isp0: cif_isp@ff910000 {
