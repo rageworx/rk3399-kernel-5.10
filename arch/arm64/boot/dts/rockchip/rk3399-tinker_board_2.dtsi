@@ -336,7 +336,13 @@
 };
 
 &cpu_thermal {
+        sustainable-power = <1761>; /* milliwatts */
+
 	trips {
+                soc_crit: cpu_crit: cpu_crit {
+                        temperature = <115000>;
+                };
+
 		cpu_hot: cpu_hot {
 			hysteresis = <10000>;
 			temperature = <55000>;
