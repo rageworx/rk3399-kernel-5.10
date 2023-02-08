@@ -216,17 +216,6 @@
 		vin-supply = <&vcc_sys>;
 	};
 
-	vcc5v0_host: vcc5v0-host-regulator {
-		compatible = "regulator-fixed";
-		enable-active-high;
-		gpio = <&gpio4 RK_PD1 GPIO_ACTIVE_HIGH>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&vcc5v0_host_en>;
-		regulator-name = "vcc5v0_host";
-		regulator-always-on;
-		vin-supply = <&vcc_sys>;
-	};
-
 	vcc_sys: vcc-sys {
 		compatible = "regulator-fixed";
 		regulator-name = "vcc_sys";
@@ -249,7 +238,7 @@
 	vbus_typec: vbus-typec-regulator {
 		compatible = "regulator-fixed";
 		enable-active-high;
-		gpio = <&gpio1 18 GPIO_ACTIVE_HIGH>;
+		gpio = <&gpio1 RK_PA3 GPIO_ACTIVE_HIGH>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&vcc5v0_typec0_en>;
 		regulator-name = "vbus_typec";
@@ -775,7 +764,6 @@
 	};
 
 	u2phy0_host: host-port {
-		phy-supply = <&vcc5v0_host>;
 		status = "okay";
 	};
 };
@@ -788,7 +776,6 @@
 	};
 
 	u2phy1_host: host-port {
-		phy-supply = <&vcc5v0_host>;
 		status = "okay";
 	};
 };
@@ -847,6 +834,10 @@
 &usbdrd_dwc3_1 {
 	status = "okay";
 	dr_mode = "host";
+	pinctrl-names = "default";
+	pinctrl-0 = <&hub_vbus_gpio>;
+	hub-vbus-gpios = <&gpio2 RK_PB4 GPIO_ACTIVE_HIGH>,
+			 <&gpio2 RK_PB4 GPIO_ACTIVE_LOW>;
 };
 
 &vopb {
@@ -1170,10 +1161,10 @@
 		};
 	};
 
-	usb2 {
-		vcc5v0_host_en: vcc5v0-host-en {
+	usb_hub {
+		hub_vbus_gpio: hub-vbus-gpio {
 			rockchip,pins =
-				<4 RK_PD1 RK_FUNC_GPIO &pcfg_pull_none>;
+				<2 RK_PB4 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 
