@@ -323,8 +323,20 @@
 	status = "okay";
 };
 
+&hdmi_in_vopb {
+	status = "okay";
+};
+
 &hdmi_in_vopl {
 	status = "disabled";
+};
+
+&dp_in_vopb {
+	status = "disabled";
+};
+
+&dp_in_vopl {
+	status = "okay";
 };
 
 &route_hdmi {
