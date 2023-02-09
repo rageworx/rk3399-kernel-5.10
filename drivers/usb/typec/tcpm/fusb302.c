@@ -412,10 +412,6 @@ static int tcpm_init(struct tcpc_dev *dev)
 	if (ret < 0)
 		return ret;
 	chip->vbus_present = !!(data & FUSB_REG_STATUS0_VBUSOK);
-	ret = fusb302_i2c_read(chip, FUSB_REG_DEVICE_ID, &data);
-	if (ret < 0)
-		return ret;
-	fusb302_log(chip, "fusb302 device ID: 0x%02x", data);
 
 	return ret;
 }
@@ -1678,6 +1674,19 @@ static struct fwnode_handle *fusb302_fwnode_get(struct device *dev)
 	return fwnode;
 }
 
+static int fusb302_check_revision(struct i2c_client *i2c)
+{
+	int ret;
+
+	ret = i2c_smbus_read_word_data(i2c, FUSB_REG_DEVICE_ID);
+	if (ret < 0)
+		return -ENODEV;
+
+	dev_info(&i2c->dev, "fusb302 device ID: 0x%04x", ret);
+
+	return 0;
+}
+
 static int fusb302_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
@@ -1692,6 +1701,13 @@ static int fusb302_probe(struct i2c_client *client,
 			"I2C/SMBus block functionality not supported!\n");
 		return -ENODEV;
 	}
+
+	ret = fusb302_check_revision(client);
+	if (ret < 0) {
+		dev_err(&client->dev, "check device ID fail\n");
+		return ret;
+	}
+
 	chip = devm_kzalloc(&client->dev, sizeof(*chip), GFP_KERNEL);
 	if (!chip)
 		return -ENOMEM;
