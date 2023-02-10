@@ -3234,6 +3234,40 @@ static void vop_mcu_mode(struct drm_crtc *crtc)
 	VOP_CTRL_SET(vop, mcu_rw_pend, vop->mcu_timing.mcu_rw_pend);
 }
 
+#define ASUS_HDMI_RESOLUTION_FILE_PATH "/boot/display/hdmi/xrandr.cfg"
+#define ASUS_DP_RESOLUTION_FILE_PATH "/boot/display/dp/xrandr.cfg"
+static void asus_write_resolution_to_file(char *buf, int writelen, int type)
+{
+	struct file *fp;
+	loff_t pos = 0;
+
+	if(type == DRM_MODE_CONNECTOR_HDMIA)
+	{
+		fp = filp_open(ASUS_HDMI_RESOLUTION_FILE_PATH, O_CREAT | O_WRONLY, 0644);
+
+		if(!IS_ERR(fp))
+		{
+			kernel_write(fp, buf, writelen, &pos);
+			filp_close(fp, NULL);
+		}
+		else
+			pr_err("%s: HDMI failed to open file\n", __func__);
+
+	}
+	else if(type == DRM_MODE_CONNECTOR_DisplayPort) {
+		fp = filp_open(ASUS_HDMI_RESOLUTION_FILE_PATH, O_CREAT | O_WRONLY, 0644);
+
+		if(!IS_ERR(fp)) {
+			kernel_write(fp, buf, writelen, &pos);
+			filp_close(fp, NULL);
+		}
+		else
+			pr_err("%s: DP failed to open file\n", __func__);
+	}
+	else
+		pr_err("%s: error type\n", __func__);
+}
+
 static void vop_crtc_atomic_enable(struct drm_crtc *crtc,
 				   struct drm_crtc_state *old_state)
 {
@@ -3257,6 +3291,7 @@ static void vop_crtc_atomic_enable(struct drm_crtc *crtc,
 	bool interlaced = !!(adjusted_mode->flags & DRM_MODE_FLAG_INTERLACE);
 	int for_ddr_freq = 0;
 	bool dclk_inv, yc_swap = false;
+	char resolution[64]={0};
 
 	if (old_state && old_state->self_refresh_active) {
 		drm_crtc_vblank_on(crtc);
@@ -3272,6 +3307,9 @@ static void vop_crtc_atomic_enable(struct drm_crtc *crtc,
 	DRM_DEV_INFO(vop->dev, "Update mode to %dx%d%s%d, type: %d\n",
 		     hdisplay, vdisplay, interlaced ? "i" : "p",
 		     drm_mode_vrefresh(adjusted_mode), s->output_type);
+	sprintf(resolution, "%dx%d%s%d\n", hdisplay, vdisplay, interlaced ? "i" : "p",
+		     drm_mode_vrefresh(adjusted_mode));
+	asus_write_resolution_to_file(resolution, strlen(resolution) + 1, s->output_type);
 	vop_initial(crtc);
 	vop_disable_allwin(vop);
 	VOP_CTRL_SET(vop, standby, 0);
