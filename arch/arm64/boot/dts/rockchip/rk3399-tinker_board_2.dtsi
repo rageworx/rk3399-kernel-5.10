@@ -635,7 +635,7 @@
 			port@0 {
 				reg = <0>;
 				usbc0_role_sw: endpoint@0 {
-					remote-endpoint = <&dwc3_0_role_switch>;
+					remote-endpoint = <&dwc3_0_role_switch0>;
 				};
 			};
 		};
@@ -645,10 +645,10 @@
 			label = "USB-C";
 			data-role = "dual";
 			power-role = "dual";
-			try-power-role = "sink";
+			try-power-role = "source";
 			op-sink-microwatt = <1000000>;
 			sink-pdos =
-				<PDO_FIXED(5000, 2500, PDO_FIXED_USB_COMM)>;
+				<PDO_FIXED(5000, 500, PDO_FIXED_USB_COMM)>;
 			source-pdos =
 				<PDO_FIXED(5000, 1500, PDO_FIXED_USB_COMM)>;
 
@@ -659,8 +659,59 @@
 				port@0 {
 					reg = <0>;
 					usbc0_orien_sw: endpoint {
-						remote-endpoint = <&tcphy0_orientation_switch>;
+						remote-endpoint = <&tcphy0_orientation_switch0>;
 					};
+				};
+			};
+		};
+	};
+
+	rtusbc0: rt1715@4e {
+		compatible = "richtek,rt1715";
+		reg = <0x4e>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <2 IRQ_TYPE_LEVEL_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&usbc0_int>;
+		vbus-supply = <&vbus_typec>;
+		status = "okay";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				rtusbc0_role_sw: endpoint@0 {
+					remote-endpoint = <&dwc3_0_role_switch1>;
+				};
+			};
+		};
+
+		connector {
+			compatible = "usb-c-connector";
+			label = "USB-C";
+			data-role = "dual";
+			power-role = "dual";
+			try-power-role = "source";
+			source-pdos = <PDO_FIXED(5000, 1500, PDO_FIXED_USB_COMM)>;
+			sink-pdos = <PDO_FIXED(5000, 500, PDO_FIXED_USB_COMM)>;
+			op-sink-microwatt = <1000000>;
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+						rtusbc0_orien_sw: endpoint {
+						remote-endpoint = <&tcphy0_orientation_switch1>;
+					};
+				};
+			};
+
+			altmodes {
+				dp {
+					svid = <0xff01>;
+					vdo = <0x001c0c00>;
 				};
 			};
 		};
@@ -737,9 +788,14 @@
 	port {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		tcphy0_orientation_switch: endpoint@0 {
+		tcphy0_orientation_switch0: endpoint@0 {
 			reg = <0>;
 			remote-endpoint = <&usbc0_orien_sw>;
+		};
+
+		tcphy0_orientation_switch1: endpoint@1 {
+			reg = <1>;
+			remote-endpoint = <&rtusbc0_orien_sw>;
 		};
 	};
 };
@@ -820,9 +876,14 @@
 	port {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		dwc3_0_role_switch: endpoint@0 {
+		dwc3_0_role_switch0: endpoint@0 {
 			reg = <0>;
 			remote-endpoint = <&usbc0_role_sw>;
+		};
+
+		dwc3_0_role_switch1: endpoint@1 {
+			reg = <1>;
+			remote-endpoint = <&rtusbc0_role_sw>;
 		};
 	};
 };
