@@ -3307,8 +3307,7 @@ static void vop_crtc_atomic_enable(struct drm_crtc *crtc,
 	DRM_DEV_INFO(vop->dev, "Update mode to %dx%d%s%d, type: %d\n",
 		     hdisplay, vdisplay, interlaced ? "i" : "p",
 		     drm_mode_vrefresh(adjusted_mode), s->output_type);
-	sprintf(resolution, "%dx%d%s%d\n", hdisplay, vdisplay, interlaced ? "i" : "p",
-		     drm_mode_vrefresh(adjusted_mode));
+	sprintf(resolution, "%dx%d\n", hdisplay, vdisplay);
 	asus_write_resolution_to_file(resolution, strlen(resolution) + 1, s->output_type);
 	vop_initial(crtc);
 	vop_disable_allwin(vop);
