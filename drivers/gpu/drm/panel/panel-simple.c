@@ -41,6 +41,17 @@
 #include <drm/drm_dsc.h>
 
 #include "panel-simple.h"
+#include "../bridge/sn65dsi8x/sn65dsi84.h"
+#include "../bridge/sn65dsi8x/sn65dsi86.h"
+
+extern void sn65dsi84_loader_protect(bool on);
+extern void sn65dsi84_bridge_disable(void);
+extern bool sn65dsi84_is_connected(void);
+extern void sn65dsi86_loader_protect(bool on);
+extern void sn65dsi86_bridge_disable(void);
+extern bool sn65dsi86_is_connected(void);
+extern struct sn65dsi84_data *g_sn65dsi84;
+extern struct sn65dsi86_data *g_sn65dsi86;
 
 #ifdef CONFIG_DRM_I2C_LT9211
 extern void lt9211_loader_protect(bool on);
@@ -482,6 +493,7 @@ int panel_simple_loader_protect(struct drm_panel *panel)
 	struct panel_simple *p = to_panel_simple(panel);
 	int err;
 
+	pr_err("panel_simple_loader_protect +\n");
 	err = panel_simple_regulator_enable(p);
 	if (err < 0) {
 		dev_err(panel->dev, "failed to enable supply: %d\n", err);
@@ -491,6 +503,12 @@ int panel_simple_loader_protect(struct drm_panel *panel)
 	p->prepared = true;
 	p->enabled = true;
 
+	if (sn65dsi84_is_connected())
+		sn65dsi84_loader_protect(true);
+
+	if (sn65dsi86_is_connected())
+		sn65dsi86_loader_protect(true);
+	pr_err("panel_simple_loader_protect -\n");
 	return 0;
 }
 EXPORT_SYMBOL(panel_simple_loader_protect);
@@ -510,6 +528,11 @@ static int panel_simple_disable(struct drm_panel *panel)
 		backlight_update_status(p->backlight);
 	}
 #endif
+	if (sn65dsi84_is_connected())
+		sn65dsi84_bridge_disable();
+
+	if (sn65dsi86_is_connected())
+		sn65dsi86_bridge_disable();
 
 	if (lt9211_is_connected()) {
         if(p->desc->pwseq_delay.t3)
@@ -5366,6 +5389,21 @@ void lt9211_setup_desc(struct panel_desc_dsi *desc)
     lt9211_set_videomode(vm);
 }
 
+void sn65dsi84_setup_desc(struct panel_desc_dsi *desc)
+{
+	drm_display_mode_to_videomode(desc->desc.modes, &g_sn65dsi84->vm);
+	g_sn65dsi84->dsi_lanes = desc->lanes;
+}
+
+void sn65dsi86_setup_desc(struct panel_desc_dsi *desc)
+{
+	drm_display_mode_to_videomode(desc->desc.modes, &g_sn65dsi86->vm);
+	memcpy(&g_sn65dsi86->mode, desc->desc.modes, sizeof(struct drm_display_mode));
+	g_sn65dsi86->dsi_lanes = desc->lanes;
+	g_sn65dsi86->format = desc->format;
+	g_sn65dsi86->bpc = desc->desc.bpc;
+}
+
 static int panel_simple_dsi_probe(struct mipi_dsi_device *dsi)
 {
 	struct panel_simple *panel;
@@ -5393,6 +5431,22 @@ static int panel_simple_dsi_probe(struct mipi_dsi_device *dsi)
 	else if (tinker_mcu_ili9881c_is_connected(dsi_id)) {
 		memcpy(d, &asus_ili9881c_dec, sizeof(asus_ili9881c_dec));
 		panel_simple_of_get_cmd(dev, &d->desc, dsi_id);
+	} else if (sn65dsi84_is_connected()) {
+		err = panel_simple_dsi_of_get_desc_data(dev, d);
+		if (err) {
+			dev_err(dev, "failed to get desc data: %d\n", err);
+			return err;
+		}
+
+		sn65dsi84_setup_desc(d);
+	} else if (sn65dsi86_is_connected()) {
+		err = panel_simple_dsi_of_get_desc_data(dev, d);
+		if (err) {
+			dev_err(dev, "failed to get desc data: %d\n", err);
+			return err;
+		}
+
+		sn65dsi86_setup_desc(d);
 	} else if (lt9211_is_connected()) {
         err = panel_simple_dsi_of_get_desc_data(dev, d);
         if (err) {

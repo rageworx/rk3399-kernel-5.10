@@ -360,6 +360,9 @@ extern int tinker_mcu_is_connected(int dsi_id);
 extern int tinker_mcu_ili9881c_is_connected(int dsi_id);
 #endif
 
+extern bool sn65dsi84_is_connected(void);
+extern bool sn65dsi86_is_connected(void);
+
 static int max_mbps_to_parameter(unsigned int max_mbps)
 {
 	int i;
@@ -993,6 +996,8 @@ static int dw_mipi_dsi_rockchip_bind(struct device *dev,
 #if defined(CONFIG_TINKER_MCU)
 	if(!tinker_mcu_is_connected(dsi->id) &&
 		!tinker_mcu_ili9881c_is_connected(dsi->id) &&
+		!sn65dsi84_is_connected() &&
+		!sn65dsi86_is_connected() &&
 		!lt9211_is_connected()) {
 		pr_info("dsi-%d panel and sn65dsi8x and lt9211 aren't connected\n", dsi->id);
 		return 0;
@@ -1132,6 +1137,7 @@ static int dw_mipi_dsi_rockchip_probe(struct platform_device *pdev)
 				of_device_get_match_data(dev);
 	int ret, i;
 
+	pr_err("dw_mipi_dsi_rockchip_probe +\n");
 	dsi = devm_kzalloc(dev, sizeof(*dsi), GFP_KERNEL);
 	if (!dsi)
 		return -ENOMEM;
@@ -1246,7 +1252,7 @@ static int dw_mipi_dsi_rockchip_probe(struct platform_device *pdev)
 		dw_mipi_dsi_remove(dsi->dmd);
 		goto err_clkdisable;
 	}
-
+	pr_err("dw_mipi_dsi_rockchip_probe -\n");
 	return 0;
 
 err_clkdisable:

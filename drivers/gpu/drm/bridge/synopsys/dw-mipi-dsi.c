@@ -328,6 +328,7 @@ static int dw_mipi_dsi_host_attach(struct mipi_dsi_host *host,
 	int max_data_lanes = dsi->plat_data->max_data_lanes;
 	int ret;
 
+	pr_err("dw_mipi_dsi_host_attach +\n");
 	dsi->lanes = (device->lanes > max_data_lanes) ? device->lanes / 2 : device->lanes;
 	dsi->channel = device->channel;
 	dsi->format = device->format;
@@ -347,7 +348,7 @@ static int dw_mipi_dsi_host_attach(struct mipi_dsi_host *host,
 		if (ret < 0)
 			return ret;
 	}
-
+	pr_err("dw_mipi_dsi_host_attach -\n");
 	return 0;
 }
 
@@ -976,8 +977,19 @@ static void dw_mipi_dsi_bridge_pre_enable(struct drm_bridge *bridge)
 		drm_panel_prepare(dsi->panel);
 }
 
+extern void sn65dsi84_bridge_enable(void);
+extern void sn65dsi86_bridge_enable(void);
+extern bool sn65dsi84_is_connected(void);
+extern bool sn65dsi86_is_connected(void);
+
 static void dw_mipi_dsi_enable(struct dw_mipi_dsi *dsi)
 {
+	if (sn65dsi84_is_connected())
+		sn65dsi84_bridge_enable();
+
+	if (sn65dsi86_is_connected())
+		sn65dsi86_bridge_enable();
+
 	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
 		dw_mipi_dsi_set_mode(dsi, MIPI_DSI_MODE_VIDEO);
 		if (dsi->slave)
@@ -1145,6 +1157,7 @@ __dw_mipi_dsi_probe(struct platform_device *pdev,
 	struct dw_mipi_dsi *dsi;
 	int ret;
 
+	pr_err("__dw_mipi_dsi_probe +\n");
 	dsi = devm_kzalloc(dev, sizeof(*dsi), GFP_KERNEL);
 	if (!dsi)
 		return ERR_PTR(-ENOMEM);
@@ -1199,7 +1212,7 @@ __dw_mipi_dsi_probe(struct platform_device *pdev,
 #ifdef CONFIG_OF
 	dsi->bridge.of_node = pdev->dev.of_node;
 #endif
-
+	pr_err("__dw_mipi_dsi_probe -\n");
 	return dsi;
 }
 
@@ -1324,6 +1337,7 @@ int dw_mipi_dsi_bind(struct dw_mipi_dsi *dsi, struct drm_encoder *encoder)
 {
 	int ret;
 
+	pr_err("dw_mipi_dsi_bind +\n");
 	dsi->encoder = encoder;
 
 	ret = drm_bridge_attach(encoder, &dsi->bridge, NULL, 0);
@@ -1331,7 +1345,7 @@ int dw_mipi_dsi_bind(struct dw_mipi_dsi *dsi, struct drm_encoder *encoder)
 		DRM_ERROR("Failed to initialize bridge with drm\n");
 		return ret;
 	}
-
+	pr_err("dw_mipi_dsi_bind -\n");
 	return ret;
 }
 EXPORT_SYMBOL_GPL(dw_mipi_dsi_bind);
