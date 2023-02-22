@@ -652,6 +652,18 @@
 			source-pdos =
 				<PDO_FIXED(5000, 1500, PDO_FIXED_USB_COMM)>;
 
+			displayport = <&cdn_dp>;
+
+			altmodes {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				altmode@0 {
+					reg = <0>;
+					svid = <0xff01>;
+					vdo = <0xffffffff>;
+				};
+			};
+
 			ports {
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -660,6 +672,13 @@
 					reg = <0>;
 					usbc0_orien_sw: endpoint {
 						remote-endpoint = <&tcphy0_orientation_switch0>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+					dp_mode_sw: endpoint {
+						remote-endpoint = <&tcphy_dp_altmode_switch0>;
 					};
 				};
 			};
@@ -697,21 +716,33 @@
 			sink-pdos = <PDO_FIXED(5000, 500, PDO_FIXED_USB_COMM)>;
 			op-sink-microwatt = <1000000>;
 
+			displayport = <&cdn_dp>;
+			altmodes {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				altmode@0 {
+					reg = <0>;
+					svid = <0xff01>;
+					vdo = <0xffffffff>;
+					//vdo = <0x001c0c00>;
+				};
+			};
+
 			ports {
 				#address-cells = <1>;
 				#size-cells = <0>;
 				port@0 {
 					reg = <0>;
-						rtusbc0_orien_sw: endpoint {
+						rt_usbc0_orien_sw: endpoint {
 						remote-endpoint = <&tcphy0_orientation_switch1>;
 					};
 				};
-			};
 
-			altmodes {
-				dp {
-					svid = <0xff01>;
-					vdo = <0x001c0c00>;
+				port@1 {
+					reg = <1>;
+						rt_dp_mode_sw: endpoint {
+						remote-endpoint = <&tcphy_dp_altmode_switch1>;
+					};
 				};
 			};
 		};
@@ -784,6 +815,7 @@
 
 &tcphy0 {
 	status = "okay";
+	svid = <0xff01>;
 	orientation-switch;
 	port {
 		#address-cells = <1>;
@@ -793,9 +825,19 @@
 			remote-endpoint = <&usbc0_orien_sw>;
 		};
 
-		tcphy0_orientation_switch1: endpoint@1 {
+		tcphy_dp_altmode_switch0: endpoint@1 {
 			reg = <1>;
-			remote-endpoint = <&rtusbc0_orien_sw>;
+			remote-endpoint = <&dp_mode_sw>;
+		};
+
+		tcphy0_orientation_switch1: endpoint@2 {
+			reg = <2>;
+			remote-endpoint = <&rt_usbc0_orien_sw>;
+		};
+
+		tcphy_dp_altmode_switch1: endpoint@3 {
+			reg = <3>;
+			remote-endpoint = <&rt_dp_mode_sw>;
 		};
 	};
 };

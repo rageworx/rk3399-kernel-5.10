@@ -308,6 +308,10 @@
 };
 
 &edp_in_vopb {
+	status = "okay";
+};
+
+&edp_in_vopl {
 	status = "disabled";
 };
 
