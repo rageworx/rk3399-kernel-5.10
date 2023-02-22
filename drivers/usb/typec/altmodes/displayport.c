@@ -77,6 +77,7 @@ struct dp_altmode {
 	struct typec_altmode *alt;
 	const struct typec_altmode *port;
 	struct fwnode_handle *connector_fwnode;
+	ktime_t notify_delayed_runtime;
 };
 
 static int dp_altmode_notify(struct dp_altmode *dp)
@@ -141,7 +142,9 @@ static int dp_altmode_status_update(struct dp_altmode *dp)
 	bool hpd = !!(dp->data.status & DP_STATUS_HPD_STATE);
 	u8 con = DP_STATUS_CONNECTION(dp->data.status);
 	int ret = 0;
+	bool notify = false;
 
+	dev_info(&dp->alt->dev,"update DisplayPort Status: 0x%08x", dp->data.status);
 	if (configured && (dp->data.status & DP_STATUS_SWITCH_TO_USB)) {
 		dp->data.conf = 0;
 		dp->state = DP_STATE_CONFIGURE;
@@ -152,7 +155,17 @@ static int dp_altmode_status_update(struct dp_altmode *dp)
 		if (!ret)
 			dp->state = DP_STATE_CONFIGURE;
 	} else {
-		if (dp->hpd != hpd) {
+		if (ktime_after(ktime_get(), dp->notify_delayed_runtime)) {
+			dp->notify_delayed_runtime = ktime_add(ktime_get(), ms_to_ktime(500));
+			notify = true;
+		} else if (dp->hpd == hpd) {
+			dev_info(&dp->alt->dev,"Do not notify same state during 500ms delay.");
+		} else {
+			dp->notify_delayed_runtime = ktime_add(ktime_get(), ms_to_ktime(500));
+			notify = true;
+		}
+
+		if (notify) {
 			drm_connector_oob_hotplug_event(dp->connector_fwnode);
 			dp->hpd = hpd;
 		}
