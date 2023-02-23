@@ -349,6 +349,17 @@ static const struct dphy_pll_parameter_map dppa_map[] = {
 	{1500, 0x3c, CP_CURRENT_12UA, LPF_RESISTORS_10_5KOHM }
 };
 
+#if defined(CONFIG_DRM_I2C_LT9211)
+extern bool lt9211_is_connected(void);
+#else
+static bool lt9211_is_connected(void) { return false; }
+#endif
+
+#if defined(CONFIG_TINKER_MCU)
+extern int tinker_mcu_is_connected(int dsi_id);
+extern int tinker_mcu_ili9881c_is_connected(int dsi_id);
+#endif
+
 static int max_mbps_to_parameter(unsigned int max_mbps)
 {
 	int i;
@@ -614,7 +625,11 @@ dw_mipi_dsi_get_lane_mbps(void *priv_data, const struct drm_display_mode *mode,
 			}
 		}
 	}
-
+#if defined(CONFIG_TINKER_MCU)
+	if(tinker_mcu_is_connected(dsi->id))
+		target_mbps = 696;
+#endif
+	printk("dw_mipi_dsi_get_lane_rate mode->clock=%d lane_rate=%u\n", mode->clock, target_mbps );
 	/* for external phy only a the mipi_dphy_config is necessary */
 	if (dsi->phy) {
 		target_pclk = DIV_ROUND_CLOSEST_ULL(target_mbps * lanes, bpp);
@@ -841,7 +856,7 @@ static int dw_mipi_dsi_rockchip_encoder_loader_protect(struct drm_encoder *encod
 					      bool on)
 {
 	struct dw_mipi_dsi_rockchip *dsi = to_dsi(encoder);
-
+	printk("%s\n",__func__);
 	if (dsi->panel)
 		panel_simple_loader_protect(dsi->panel);
 
@@ -974,6 +989,17 @@ static int dw_mipi_dsi_rockchip_bind(struct device *dev,
 	struct drm_device *drm_dev = data;
 	struct device *second;
 	int ret;
+
+#if defined(CONFIG_TINKER_MCU)
+	if(!tinker_mcu_is_connected(dsi->id) &&
+		!tinker_mcu_ili9881c_is_connected(dsi->id) &&
+		!lt9211_is_connected()) {
+		pr_info("dsi-%d panel and sn65dsi8x and lt9211 aren't connected\n", dsi->id);
+		return 0;
+	} else {
+		pr_info("dsi-%d panel  or sn65dsi8x or lt9211 is connected\n", dsi->id);
+	}
+#endif
 
 	ret = drm_of_find_panel_or_bridge(dsi->dev->of_node, 1, 0,
 					  &dsi->panel, &dsi->bridge);
