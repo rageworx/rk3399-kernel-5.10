@@ -377,11 +377,11 @@
 };
 
 &dp_in_vopb {
-	status = "okay";
+	status = "disabled";
 };
 
 &dp_in_vopl {
-	status = "disabled";
+	status = "okay";
 };
 
 &route_hdmi {
