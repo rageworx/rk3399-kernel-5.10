@@ -997,7 +997,7 @@
 		4       0x20
 	>;
 	auto-min-freq = <416000>;
-	auto-freq-en = <1>;
+	auto-freq-en = <0>;
 };
 
 &dmc_opp_table {
