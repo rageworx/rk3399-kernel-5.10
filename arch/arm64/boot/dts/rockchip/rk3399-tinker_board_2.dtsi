@@ -976,7 +976,7 @@
 	system-status-freq = <
 		/*system status         freq(KHz)*/
 		SYS_STATUS_NORMAL       856000
-		SYS_STATUS_REBOOT       416000
+		SYS_STATUS_REBOOT       856000
 		SYS_STATUS_SUSPEND      416000
 		SYS_STATUS_VIDEO_1080P  856000
 		SYS_STATUS_VIDEO_4K     856000
