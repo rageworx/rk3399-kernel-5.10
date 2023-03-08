@@ -1344,6 +1344,11 @@ static void tcphy_phy_deinit(struct rockchip_typec_phy *tcphy)
 
 static int tcphy_get_mode(struct rockchip_typec_phy *tcphy)
 {
+	struct typec_mux *mux =tcphy->mux;
+
+	if (!mux)
+		return MODE_DFP_USB;
+
 	return tcphy->new_mode;
 }
 
