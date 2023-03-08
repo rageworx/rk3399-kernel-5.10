@@ -1753,6 +1753,9 @@ static int dwc3_remove(struct platform_device *pdev)
 
 	pm_runtime_get_sync(&pdev->dev);
 
+	if (dwc->gpio_hub_vbus && dwc->dr_mode == USB_DR_MODE_HOST)
+		gpiod_set_value(dwc->gpio_hub_vbus, 0);
+
 	dwc3_core_exit_mode(dwc);
 	dwc3_debugfs_exit(dwc);
 
