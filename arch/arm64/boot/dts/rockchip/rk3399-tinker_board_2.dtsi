@@ -355,13 +355,16 @@
 	assigned-clock-parents = <&cru SCLK_MAC>;
 	assigned-clock-rates = <125000000>;
 	clock_in_out = "output";
+	pinctrl-names = "default";
+	pinctrl-0 = <&gmac_pmeb_gpios>;
+	wolirq-gpio = <&gpio3 RK_PC0 GPIO_ACTIVE_LOW>;
 	phy-supply = <&vcc_lan>;
 	phy-mode = "rgmii";
 	pinctrl-names = "default";
 	pinctrl-0 = <&rgmii_pins>;
 	snps,reset-gpio = <&gpio3 RK_PB7 GPIO_ACTIVE_LOW>;
 	snps,reset-active-low;
-	snps,reset-delays-us = <0 16000 72000>;
+	snps,reset-delays-us = <0 20000 100000>;
 	tx_delay = <0x25>;
 	rx_delay = <0x20>;
 	status = "okay";
@@ -563,7 +566,7 @@
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-state-mem {
-					regulator-off-in-suspend;
+					regulator-on-in-suspend;
 				};
 			};
 		};

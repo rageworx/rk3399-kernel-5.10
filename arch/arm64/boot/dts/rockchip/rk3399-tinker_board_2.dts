@@ -1047,7 +1047,15 @@
 		pinctrl_pwr_source: pwr_source {
 			rockchip,pins = <0 RK_PA6 RK_FUNC_GPIO  &pcfg_pull_none>;
 		};
-	 };
+	};
+
+	gmac-wol {
+		gmac_pmeb_gpios:  gmac-pmeb-gpios {
+			rockchip,pins =
+				<3 RK_PB2 RK_FUNC_GPIO &pcfg_pull_none>,
+				<3 RK_PC0 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
 };
 
 &backlight {

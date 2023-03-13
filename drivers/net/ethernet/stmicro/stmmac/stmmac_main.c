@@ -47,6 +47,7 @@
 #include "dwxgmac2.h"
 #include "hwif.h"
 #include "eth_mac_tinker.h"
+#include <linux/gpio.h>
 
 /* As long as the interface is active, we keep the timestamping counter enabled
  * with fine resolution and binary rollover. This avoid non-monotonic behavior
@@ -121,6 +122,27 @@ static void stmmac_exit_fs(struct net_device *dev);
 #endif
 
 #define STMMAC_COAL_TIMER(x) (jiffies + usecs_to_jiffies(x))
+
+//RTL8211 PHY ID
+#define RTL8211E_PHY_ID  0x001cc915
+#define RTL8211F_FI_CG_PHY_ID  0x001cc916
+
+static int phy_rtl8211x_eee_fixup(struct phy_device *phydev)
+{
+	pr_info("rk_gmac-dwmac: rtl8211x eee fixup\n");
+	phy_write(phydev, 31, 0x0000);
+	phy_write(phydev,  0, 0x8000);
+	mdelay(20);
+	phy_write(phydev, 31, 0x0a4b);
+	phy_write(phydev, 17, 0x1110);
+	phy_write(phydev, 31, 0x0000);
+	phy_write(phydev, 13, 0x0007);
+	phy_write(phydev, 14, 0x003c);
+	phy_write(phydev, 13, 0x4007);
+	phy_write(phydev, 14, 0x0000);
+
+	return 0;
+}
 
 extern int get_board_id(void);
 
@@ -2923,6 +2945,17 @@ void setConfiguration(struct phy_device *phydev) {
 	}
 }
 
+static irqreturn_t wol_io_isr(int irq, void *dev_id)
+{
+	struct net_device *dev = (struct net_device *)dev_id;
+	struct stmmac_priv *priv = netdev_priv(dev);
+
+	pr_info("rk_gmac-dwmac:  wol_io_isr +++++\n");
+	wake_lock_timeout(&priv->plat->wol_wake_lock, msecs_to_jiffies(8000));
+
+	return IRQ_HANDLED;
+}
+
 /**
  *  stmmac_open - open entry point of the driver
  *  @dev : pointer to the device structure.
@@ -2938,6 +2971,10 @@ static int stmmac_open(struct net_device *dev)
 	int bfsize = 0;
 	u32 chan;
 	int ret;
+
+	/* reset the phy so that it's ready */
+	if (priv->mii)
+		stmmac_mdio_reset(priv->mii);
 
 	ret = pm_runtime_get_sync(priv->device);
 	if (ret < 0) {
@@ -3051,6 +3088,28 @@ static int stmmac_open(struct net_device *dev)
 		}
 	}
 
+	if (priv->plat->wolirq_io > 0) {
+		ret = devm_gpio_request(priv->device, priv->plat->wolirq_io, "gmac_wol_io");
+		if (ret) {
+			pr_err("%s: ERROR: failed to request WOL GPIO %d, err: %d\n",
+				   __func__, priv->plat->wolirq_io, ret);
+			goto lpiirq_error;
+		}
+
+		priv->plat->wol_irq = gpio_to_irq(priv->plat->wolirq_io);
+		ret = devm_request_irq(priv->device, priv->plat->wol_irq, wol_io_isr,
+			IRQF_TRIGGER_FALLING, "gmac_wol_io_irq", dev);
+		if (ret) {
+			pr_err("%s: ERROR: request wol io irq fail: %d", __func__, ret);
+			devm_gpio_free(priv->device, priv->plat->wolirq_io);
+			goto lpiirq_error;
+		}
+		//Fixed first enable_irq crash issue
+		disable_irq(priv->plat->wol_irq);
+		enable_irq(priv->plat->wol_irq);
+		disable_irq(priv->plat->wol_irq);
+	}
+
 	stmmac_enable_all_queues(priv);
 	netif_tx_start_all_queues(priv->dev);
 
@@ -3108,6 +3167,12 @@ static int stmmac_release(struct net_device *dev)
 		free_irq(priv->wol_irq, dev);
 	if (priv->lpi_irq > 0)
 		free_irq(priv->lpi_irq, dev);
+
+	if (priv->plat->wol_irq > 0)
+		devm_free_irq(priv->device, priv->plat->wol_irq, dev);
+
+	if (priv->plat->wolirq_io > 0)
+		devm_gpio_free(priv->device, priv->plat->wolirq_io);
 
 	if (priv->eee_enabled) {
 		priv->tx_path_in_lpi_mode = false;
@@ -5065,6 +5130,7 @@ int stmmac_dvr_probe(struct device *device,
 	struct stmmac_priv *priv;
 	u32 rxq;
 	int i, ret = 0;
+	bool is_rtl8211e = get_board_id() >= 3 ? true: false;
 
 	ndev = devm_alloc_etherdev_mqs(device, sizeof(struct stmmac_priv),
 				       MTL_MAX_TX_QUEUES, MTL_MAX_RX_QUEUES);
@@ -5280,6 +5346,14 @@ int stmmac_dvr_probe(struct device *device,
 		goto error_netdev_register;
 	}
 
+	if (is_rtl8211e)
+		ret = phy_register_fixup_for_uid(RTL8211E_PHY_ID, 0xffffffff, phy_rtl8211x_eee_fixup);
+	else
+		ret = phy_register_fixup_for_uid(RTL8211F_FI_CG_PHY_ID, 0xffffffff, phy_rtl8211x_eee_fixup);
+
+	if (ret)
+		pr_warn("Cannot register PHY board fixup.\n");
+
 	if (priv->plat->serdes_powerup) {
 		ret = priv->plat->serdes_powerup(ndev,
 						 priv->plat->bsp_priv);
@@ -5296,6 +5370,7 @@ int stmmac_dvr_probe(struct device *device,
 	 * If CONFIG_PM is not enabled, the clocks will stay powered.
 	 */
 	pm_runtime_put(device);
+	wake_lock_init(&priv->plat->wol_wake_lock, WAKE_LOCK_SUSPEND, "wol_wake_lock");
 
 	return ret;
 
@@ -5353,10 +5428,122 @@ int stmmac_dvr_remove(struct device *dev)
 		stmmac_mdio_unregister(ndev);
 	destroy_workqueue(priv->wq);
 	mutex_destroy(&priv->lock);
+	wake_lock_destroy(&priv->plat->wol_wake_lock);
 
 	return 0;
 }
 EXPORT_SYMBOL_GPL(stmmac_dvr_remove);
+
+void set_rtl8211e_wol_enable(struct phy_device *phydev)
+{
+	int value;
+	struct net_device * ndev = phydev->attached_dev;
+
+	pr_info("rk_gmac-dwmac: rtl8211e wol enable\n");
+
+	phy_write(phydev, 31, 0x07);
+	phy_write(phydev, 30, 0x6e);
+	phy_write(phydev, 21, ((u16)ndev->dev_addr[1] << 8) + ndev->dev_addr[0]);
+	phy_write(phydev, 22, ((u16)ndev->dev_addr[3] << 8) + ndev->dev_addr[2]);
+	phy_write(phydev, 23, ((u16)ndev->dev_addr[5] << 8) + ndev->dev_addr[4]);
+	phy_write(phydev, 31, 0x07);
+	phy_write(phydev, 30, 0x6d);
+	phy_write(phydev, 22, 0x1fff);
+	value = phy_read(phydev, 22);
+	phy_write(phydev, 31, 0x07);
+	phy_write(phydev, 30, 0x6d);
+	phy_write(phydev, 21, 0x1000);
+	value = phy_read(phydev, 21);
+	phy_write(phydev, 31, 0x07);
+	phy_write(phydev, 30, 0x6d);
+	value =  phy_read(phydev, 25);
+	phy_write(phydev, 25, value | 0x1);
+	phy_write(phydev, 31, 0x0);
+	value = phy_read(phydev, 31);
+}
+
+void set_rtl8211e_wol_disable(struct phy_device *phydev)
+{
+	int value;
+
+	pr_info("rk_gmac-dwmac: rtl8211e wol disable\n");
+
+	phy_write(phydev, 31, 0x07);
+	phy_write(phydev, 30, 0x6d);
+	phy_write(phydev, 21, 0x0);
+	value = phy_read(phydev, 21);
+	phy_write(phydev, 31, 0x07);
+	phy_write(phydev, 30, 0x6d);
+	value =  phy_read(phydev, 22);
+	phy_write(phydev, 22, value | BIT(15));
+	value = phy_read(phydev, 22);
+	phy_write(phydev, 31, 0x07);
+	phy_write(phydev, 30, 0x6d);
+	value =  phy_read(phydev, 25);
+	phy_write(phydev, 25, value & (~(0x1)));
+	phy_write(phydev, 31, 0x0);
+	value = phy_read(phydev, 31);
+}
+
+void set_rtl8211f_wol_enable(struct phy_device *phydev)
+{
+	int value;
+	struct net_device * ndev = phydev->attached_dev;
+
+	pr_info("rk_gmac-dwmac: rtl8211f wol enable\n");
+
+	//set INTB pin
+	phy_write(phydev, 31, 0x0d40);
+	value = phy_read(phydev, 22);
+	phy_write(phydev, 22, value | BIT(5));
+
+	//set MAC address
+	phy_write(phydev, 31, 0x0d8c);
+	phy_write(phydev, 16, ((u16)ndev->dev_addr[1] << 8) + ndev->dev_addr[0]);
+	phy_write(phydev, 17, ((u16)ndev->dev_addr[3] << 8) + ndev->dev_addr[2]);
+	phy_write(phydev, 18, ((u16)ndev->dev_addr[5] << 8) + ndev->dev_addr[4]);
+
+	//set max packet length
+	phy_write(phydev, 31, 0x0d8a);
+	phy_write(phydev, 17, 0x9fff);
+
+	//enable wol event
+	phy_write(phydev, 31, 0x0d8a);
+	phy_write(phydev, 16, 0x1000);
+
+	//disable rgmii pad
+	phy_write(phydev, 31, 0x0d8a);
+	value = phy_read(phydev, 19);
+	phy_write(phydev, 19, value | BIT(15));
+	phy_write(phydev, 31, 0xa42);
+}
+
+void set_rtl8211f_wol_disable(struct phy_device *phydev)
+{
+	int value;
+
+	pr_info("rk_gmac-dwmac: rtl8211f wol disable\n");
+
+	//disable wol event
+	phy_write(phydev, 31, 0x0d8a);
+	phy_write(phydev, 16, 0x0);
+
+	//reset wol
+	phy_write(phydev, 31, 0x0d8a);
+	value = phy_read(phydev, 17);
+	phy_write(phydev, 17, value & (~BIT(15)));
+
+	//enable rgmii pad
+	phy_write(phydev, 31, 0x0d8a);
+	value = phy_read(phydev, 19);
+	phy_write(phydev, 19, value & (~BIT(15)));
+
+	//set INTB pin
+	phy_write(phydev, 31, 0x0d40);
+	value = phy_read(phydev, 22);
+	phy_write(phydev, 22, value & (~BIT(5)));
+	phy_write(phydev, 31, 0xa42);
+}
 
 /**
  * stmmac_suspend - suspend callback
@@ -5369,9 +5556,13 @@ int stmmac_suspend(struct device *dev)
 {
 	struct net_device *ndev = dev_get_drvdata(dev);
 	struct stmmac_priv *priv = netdev_priv(ndev);
+	struct phy_device *phydev = ndev->phydev;
 	u32 chan;
 
 	if (!ndev || !netif_running(ndev))
+		return 0;
+
+	if (!phydev)
 		return 0;
 
 	phylink_mac_change(priv->phylink, false);
@@ -5418,6 +5609,18 @@ int stmmac_suspend(struct device *dev)
 	mutex_unlock(&priv->lock);
 
 	priv->speed = SPEED_UNKNOWN;
+
+	if(!priv->plat->is_in_suspend){
+		if (get_board_id() >= 3)
+			set_rtl8211e_wol_enable(phydev);
+		else
+			set_rtl8211f_wol_enable(phydev);
+
+		enable_irq(priv->plat->wol_irq);
+		enable_irq_wake(priv->plat->wol_irq);
+		priv->plat->is_in_suspend = true;
+	}
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(stmmac_suspend);
@@ -5460,9 +5663,13 @@ int stmmac_resume(struct device *dev)
 {
 	struct net_device *ndev = dev_get_drvdata(dev);
 	struct stmmac_priv *priv = netdev_priv(ndev);
+	struct phy_device *phydev = ndev->phydev;
 	int ret;
 
 	if (!netif_running(ndev))
+		return 0;
+
+	if (!phydev)
 		return 0;
 
 	/* Power Down bit, into the PM register, is cleared
@@ -5520,6 +5727,17 @@ int stmmac_resume(struct device *dev)
 
 	mutex_unlock(&priv->lock);
 	rtnl_unlock();
+
+	if(priv->plat->is_in_suspend){
+		if (get_board_id() >= 3)
+			set_rtl8211e_wol_disable(phydev);
+		else
+			set_rtl8211f_wol_disable(phydev);
+
+		disable_irq(priv->plat->wol_irq);
+		disable_irq_wake(priv->plat->wol_irq);
+		priv->plat->is_in_suspend = false;
+	}
 
 	phylink_mac_change(priv->phylink, true);
 

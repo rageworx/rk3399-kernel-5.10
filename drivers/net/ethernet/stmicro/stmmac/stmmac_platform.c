@@ -19,6 +19,7 @@
 
 #include "stmmac.h"
 #include "stmmac_platform.h"
+#include <linux/of_gpio.h>
 
 #ifdef CONFIG_OF
 
@@ -386,6 +387,8 @@ static int stmmac_of_get_mac_mode(struct device_node *np)
 	return -ENODEV;
 }
 
+extern int get_board_id(void);
+
 /**
  * stmmac_probe_config_dt - parse device-tree driver parameters
  * @pdev: platform_device structure
@@ -402,6 +405,8 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
 	struct stmmac_dma_cfg *dma_cfg;
 	int phy_mode;
 	int rc;
+	int wolirq_gpio_rtl8211e = 106;
+	int wolirq_gpio_rtl8211f = 112;
 
 	plat = devm_kzalloc(&pdev->dev, sizeof(*plat), GFP_KERNEL);
 	if (!plat)
@@ -438,6 +443,8 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
 	plat->bus_id = of_alias_get_id(np, "ethernet");
 	if (plat->bus_id < 0)
 		plat->bus_id = 0;
+
+	plat->wolirq_io = get_board_id() >= 3 ? wolirq_gpio_rtl8211e: wolirq_gpio_rtl8211f;
 
 	/* Default to phy auto-detection */
 	plat->phy_addr = -1;
