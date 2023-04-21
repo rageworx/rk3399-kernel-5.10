@@ -521,6 +521,22 @@ static int panel_simple_disable(struct drm_panel *panel)
 	if (!p->enabled)
 		return 0;
 
+	if (p->desc->delay.disable)
+		msleep(p->desc->delay.disable);
+
+	p->enabled = false;
+
+	return 0;
+}
+
+static int panel_simple_unprepare(struct drm_panel *panel)
+{
+	struct panel_simple *p = to_panel_simple(panel);
+	printk("panel_simple_unprepare p->prepared=%d\n", p->prepared);
+
+	if (!p->prepared)
+		return 0;
+
 #if defined(CONFIG_TINKER_MCU)
 	if (p->backlight) {
 		p->backlight->props.power = FB_BLANK_POWERDOWN;
@@ -545,28 +561,6 @@ static int panel_simple_disable(struct drm_panel *panel)
             msleep(p->desc->pwseq_delay.t5);//lvds power off to turn on lvds power
     }
 
-	if (p->desc->delay.disable)
-		msleep(p->desc->delay.disable);
-
-#if defined(CONFIG_TINKER_MCU)
-	if (tinker_mcu_is_connected(p->dsi_id)) {
-		printk("tinker_mcu_screen_power_off\n");
-		tinker_mcu_screen_power_off(p->dsi_id);
-	}
-#endif
-	p->enabled = false;
-
-	return 0;
-}
-
-static int panel_simple_unprepare(struct drm_panel *panel)
-{
-	struct panel_simple *p = to_panel_simple(panel);
-	printk("panel_simple_unprepare p->prepared=%d\n", p->prepared);
-
-	if (!p->prepared)
-		return 0;
-
 	if (p->desc->exit_seq)
 		if (p->dsi)
 			panel_simple_xfer_dsi_cmd_seq(p, p->desc->exit_seq);
@@ -585,6 +579,13 @@ static int panel_simple_unprepare(struct drm_panel *panel)
 
 	if (p->desc->delay.unprepare)
 		msleep(p->desc->delay.unprepare);
+
+#if defined(CONFIG_TINKER_MCU)
+	if (tinker_mcu_is_connected(p->dsi_id)) {
+		printk("tinker_mcu_screen_power_off\n");
+		tinker_mcu_screen_power_off(p->dsi_id);
+	}
+#endif
 
 	p->prepared = false;
 
