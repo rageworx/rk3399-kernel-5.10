@@ -11,7 +11,9 @@
 #include <drm/drm_panel.h>
 #include <drm/drm_probe_helper.h>
 
+#include <linux/extcon-provider.h>
 #include "rockchip_drm_drv.h"
+#include <sound/hdmi-codec.h>
 
 #define MAX_PHY		2
 
@@ -66,6 +68,9 @@ struct cdn_dp_device {
 	struct drm_encoder encoder;
 	struct drm_display_mode mode;
 	struct platform_device *audio_pdev;
+	hdmi_codec_plugged_cb plugged_cb;
+	struct device *codec_dev;
+	struct extcon_dev *extcon;
 	struct delayed_work event_work;
 	struct edid *edid;
 	struct rockchip_drm_sub_dev sub_dev;

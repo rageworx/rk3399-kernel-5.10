@@ -188,6 +188,15 @@
 		status = "disabled";
 	};
 
+	dp_sound: dp-sound {
+		status = "disabled";
+		compatible = "rockchip,hdmi";
+		rockchip,card-name = "rockchip,dp";
+		rockchip,mclk-fs = <512>;
+		rockchip,cpu = <&spdif>;
+		rockchip,codec = <&cdn_dp 1>;
+	};
+
 	/* switched by pmic_sleep */
 	vcc1v8_s3: vcca1v8_s3: vcc1v8-s3 {
 		compatible = "regulator-fixed";
@@ -275,7 +284,7 @@
 	};
 
 	spdif-sound {
-		status = "okay";
+		status = "disabled";
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "ROCKCHIP,SPDIF";
 		simple-audio-card,cpu {
@@ -1058,12 +1067,20 @@
 	};
 };
 
+&dp_sound {
+	status = "okay";
+};
+
 &spdif {
 	status = "okay";
 	pinctrl-0 = <&spdif_bus>;
 	i2c-scl-rising-time-ns = <450>;
 	i2c-scl-falling-time-ns = <15>;
 	#sound-dai-cells = <0>;
+};
+
+&spdif_out {
+	status = "disabled";
 };
 
 &i2s0 {
