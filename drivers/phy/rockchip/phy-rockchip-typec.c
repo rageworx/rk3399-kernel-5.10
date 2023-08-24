@@ -51,6 +51,7 @@
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <linux/reset.h>
+#include <linux/usb/typec_dp.h>
 #include <linux/usb/typec_mux.h>
 #include <linux/usb/typec_dp.h>
 
@@ -1771,6 +1772,7 @@ static int rockchip_typec_phy_probe(struct platform_device *pdev)
 		return ret;
 
 	tcphy->dev = dev;
+	tcphy->new_mode = MODE_DFP_USB;
 	platform_set_drvdata(pdev, tcphy);
 	mutex_init(&tcphy->lock);
 
@@ -1781,7 +1783,7 @@ static int rockchip_typec_phy_probe(struct platform_device *pdev)
 		if (ret)
 			return ret;
 		ret = devm_add_action_or_reset(dev, udphy_orien_switch_unregister,
-				tcphy);
+					       tcphy);
 		if (ret)
 			return ret;
 	}
@@ -1803,23 +1805,24 @@ static int rockchip_typec_phy_probe(struct platform_device *pdev)
 
 		if (!of_node_cmp(child_np->name, "dp-port")) {
 			phy = devm_phy_create(dev, child_np,
-					&rockchip_dp_phy_ops);
+					      &rockchip_dp_phy_ops);
 			if (IS_ERR(phy)) {
 				dev_err(dev, "failed to create phy: %s\n",
-						child_np->name);
-				pm_runtime_disable(dev);
-				return PTR_ERR(phy);
+					child_np->name);
+				of_node_put(child_np);
+				ret = PTR_ERR(phy);
+				goto error;
 			}
 			tcphy->phys[TYPEC_PHY_DP] = phy;
 		} else if (!of_node_cmp(child_np->name, "usb3-port")) {
-
 			phy = devm_phy_create(dev, child_np,
-					&rockchip_usb3_phy_ops);
+					      &rockchip_usb3_phy_ops);
 			if (IS_ERR(phy)) {
 				dev_err(dev, "failed to create phy: %s\n",
-						child_np->name);
-				pm_runtime_disable(dev);
-				return PTR_ERR(phy);
+					child_np->name);
+				of_node_put(child_np);
+				ret = PTR_ERR(phy);
+				goto error;
 			}
 			tcphy->phys[TYPEC_PHY_USB] = phy;
 		} else {
@@ -1832,11 +1835,15 @@ static int rockchip_typec_phy_probe(struct platform_device *pdev)
 	phy_provider = devm_of_phy_provider_register(dev, of_phy_simple_xlate);
 	if (IS_ERR(phy_provider)) {
 		dev_err(dev, "Failed to register phy provider\n");
-		pm_runtime_disable(dev);
-		return PTR_ERR(phy_provider);
+		ret = PTR_ERR(phy_provider);
+		goto error;
 	}
 
 	return 0;
+
+error:
+	pm_runtime_disable(dev);
+	return ret;
 }
 
 static int rockchip_typec_phy_remove(struct platform_device *pdev)
