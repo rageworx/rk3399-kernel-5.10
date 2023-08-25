@@ -1764,7 +1764,7 @@ static int vop_plane_atomic_check(struct drm_plane *plane,
 	if (WARN_ON(!crtc_state))
 		return -EINVAL;
 
-	vop_plane_state->zpos = state->zpos;
+	vop_plane_state->zpos = state->zpos = win->zpos;
 	vop_plane_state->blend_mode = state->pixel_blend_mode;
 
 	ret = drm_atomic_helper_check_plane_state(state, crtc_state,
