@@ -938,6 +938,7 @@
 
 &usbdrd_dwc3_0 {
 	status = "okay";
+	snps,parkmode-disable-hs-quirk;
 	usb-role-switch;
 	port {
 		#address-cells = <1>;
@@ -965,6 +966,7 @@
 	pinctrl-0 = <&hub_vbus_gpio>;
 	hub-vbus-gpios = <&gpio2 RK_PB4 GPIO_ACTIVE_HIGH>,
 			 <&gpio2 RK_PB4 GPIO_ACTIVE_LOW>;
+	snps,parkmode-disable-hs-quirk;
 };
 
 &vopb {
