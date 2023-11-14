@@ -817,8 +817,11 @@ static int panel_simple_enable(struct drm_panel *panel)
     }
 
 	if (p->desc->init_seq) {
-		if ((p->dsi) && tinker_mcu_is_connected(p->dsi_id))
+		if ((p->dsi) && tinker_mcu_is_connected(p->dsi_id)) {
 			err = panel_simple_xfer_dsi_cmd_seq(p, p->desc->init_seq);
+			//add delay after init to prevent blurry screen
+			msleep(50);
+		}
 
 		if (err)
 			dev_err(panel->dev, "panel_simple_enable:failed to send on cmds\n");
