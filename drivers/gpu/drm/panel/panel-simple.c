@@ -557,11 +557,17 @@ static int panel_simple_disable(struct drm_panel *panel)
 	struct panel_simple *p = to_panel_simple(panel);
 
 	printk("panel_simple_disable p->enabled=%d\n", p->enabled);
+
 	if (!p->enabled)
 		return 0;
 
 	if (p->desc->delay.disable)
 		usleep_range(p->desc->delay.disable * 1000, p->desc->delay.disable * 1000 + 100);
+
+	if (dsi_panel == MIPI_DSI_ATLA101U3_V1B) {
+		if (p->desc->pwseq_delay.t4)
+			msleep(p->desc->pwseq_delay.t4);
+	}
 
 	p->enabled = false;
 
@@ -619,12 +625,12 @@ static int panel_simple_unprepare(struct drm_panel *panel)
 	}
 #endif
 
-	if (dsi_panel == MIPI_DSI_LKW070N13000_V2)
-	{
+	if (dsi_panel == MIPI_DSI_LKW070N13000_V2) {
 		gpiod_direction_output(p->reset_gpio, 0);
-	}
-	else
-	{
+	} else if (dsi_panel == MIPI_DSI_ATLA101U3_V1B) {
+		if (p->desc->pwseq_delay.t3)
+			msleep(p->desc->pwseq_delay.t3);
+	} else {
 		gpiod_direction_output(p->reset_gpio, 1);
 	}
 
@@ -678,6 +684,7 @@ static int panel_simple_prepare(struct drm_panel *panel)
 	unsigned int delay;
 	int err;
 	int hpd_asserted;
+
 	printk("panel_simple_prepare p->prepared=%d\n", p->prepared);
 
 	if (p->prepared)
@@ -748,9 +755,10 @@ static int panel_simple_prepare(struct drm_panel *panel)
 
 		if (p->desc->delay.reset_high2)
 			msleep(p->desc->delay.reset_high2);
-	}
-	else
-	{
+	} else if (dsi_panel == MIPI_DSI_ATLA101U3_V1B) {
+		if (p->desc->pwseq_delay.t1)
+			msleep(p->desc->pwseq_delay.t1);
+	} else {
 		gpiod_direction_output(p->reset_gpio, 1);
 
 		if (p->desc->delay.reset)
@@ -815,6 +823,11 @@ static int panel_simple_enable(struct drm_panel *panel)
 		if(p->desc->pwseq_delay.t2)
             msleep(p->desc->pwseq_delay.t2);//lvds signal to turn on backlight
     }
+
+	if (dsi_panel == MIPI_DSI_ATLA101U3_V1B) {
+		if (p->desc->pwseq_delay.t2)
+			msleep(p->desc->pwseq_delay.t2);
+	}
 
 	if (p->desc->init_seq) {
 		if ((p->dsi) && tinker_mcu_is_connected(p->dsi_id)) {
@@ -4946,14 +4959,20 @@ static int panel_simple_of_get_cmd(struct device *dev,
 			else
 				data = of_get_property(np, "powertip-rev-a-init-sequence",
 			       &len);
-	}
-	else if (dsi_panel == MIPI_DSI_LKW070N13000_V2)
-	{
+	} else if (dsi_panel == MIPI_DSI_LKW070N13000_V2) {
 		data = of_get_property(np, "lkw070n13000-v2-init-sequence", &len);
 
 		of_property_read_u32(np, "reset-high-delay-ms", &desc->delay.reset_high);
 		of_property_read_u32(np, "reset-high2-delay-ms", &desc->delay.reset_high2);
 		of_property_read_u32(np, "reset-low-delay-ms", &desc->delay.reset_low);
+	} else if (dsi_panel == MIPI_DSI_ATLA101U3_V1B) {
+		data = of_get_property(np, "powertip-rev-c-init-sequence",&len);
+
+		of_property_read_u32(np, "t1", &desc->pwseq_delay.t1);
+		of_property_read_u32(np, "t2", &desc->pwseq_delay.t2);
+		of_property_read_u32(np, "t3", &desc->pwseq_delay.t3);
+		of_property_read_u32(np, "t4", &desc->pwseq_delay.t4);
+		of_property_read_u32(np, "t5", &desc->pwseq_delay.t5);
 	}
 
 	if (data) {
@@ -4971,15 +4990,13 @@ static int panel_simple_of_get_cmd(struct device *dev,
 	}
 
 	if (tinker_mcu_is_connected(dsi_id))
-		data = of_get_property(np, "rpi-exit-sequence",
-			       &len);
+		data = of_get_property(np, "rpi-exit-sequence",&len);
 	else if (tinker_mcu_ili9881c_is_connected(dsi_id))
-		data = of_get_property(np, "powertip-exit-sequence",
-			       &len);
+		data = of_get_property(np, "powertip-exit-sequence",&len);
 	else if (dsi_panel == MIPI_DSI_LKW070N13000_V2)
-	{
 		data = of_get_property(np, "lkw070n13000-v2-exit-sequence", &len);
-	}
+	else if (dsi_panel == MIPI_DSI_ATLA101U3_V1B)
+		data = of_get_property(np, "powertip-exit-sequence",&len);
 
 	if (data) {
 		desc->exit_seq = devm_kzalloc(dev, sizeof(*desc->exit_seq),
@@ -5312,6 +5329,36 @@ static const struct panel_desc_dsi panasonic_vvx10f004b00 = {
 	.lanes = 4,
 };
 
+static const struct drm_display_mode atla101u3_v1b_mode = {
+    .clock        = 75000,
+    .hdisplay    = 1280,
+    .hsync_start    = 1280 + 10,
+    .hsync_end    = 1280 + 10 + 72,
+    .htotal        = 1280 + 10 + 72 + 88,
+    .vdisplay    = 800,
+    .vsync_start    = 800 + 10,
+    .vsync_end    = 800 + 10 + 15,
+    .vtotal        = 800 + 10 + 15 + 23,
+    .flags = DRM_MODE_FLAG_NVSYNC | DRM_MODE_FLAG_NHSYNC,
+};
+
+static const struct panel_desc_dsi atla101u3_v1b_dec= {
+	.desc = {
+		.modes = &atla101u3_v1b_mode,
+		.num_modes = 1,
+		.bpc = 8,
+		.size = {
+			.width = 233,
+			.height = 153,
+		},
+	},
+	.flags = MIPI_DSI_MODE_VIDEO |
+		MIPI_DSI_MODE_VIDEO_BURST |
+		MIPI_DSI_MODE_LPM ,
+	.format = MIPI_DSI_FMT_RGB888,
+	.lanes = 4,
+};
+
 static const struct drm_display_mode lkw070n13000_v2_mode = {
 	.clock = 70000,
 	.hdisplay = 800,
@@ -5561,10 +5608,11 @@ static int panel_simple_dsi_probe(struct mipi_dsi_device *dsi)
 	if(of_property_read_bool(np, "lkw070n13000-v2-panel-exist"))
 	{
 		dsi_panel = MIPI_DSI_LKW070N13000_V2;
-		pr_err("%s: lkw070n13000-v2 is connected\n", __func__);
-	}
-	else
-	{
+		printk("%s: lkw070n13000-v2 is connected\n", __func__);
+	} else if(of_property_read_bool(np, "atla101u3-v1b-panel-exist")) {
+		dsi_panel = MIPI_DSI_ATLA101U3_V1B;
+		printk("%s: atla101u3-v1b is connected\n", __func__);
+	} else {
 		dsi_panel = MIPI_DSI_NONE;
 	}
 
@@ -5608,10 +5656,11 @@ static int panel_simple_dsi_probe(struct mipi_dsi_device *dsi)
         }
 
         lt9211_setup_desc(d);
-    }
-	else if (dsi_panel == MIPI_DSI_LKW070N13000_V2)
-	{
+    } else if (dsi_panel == MIPI_DSI_LKW070N13000_V2) {
 		memcpy(d, &lkw070n13000_v2_dec, sizeof(lkw070n13000_v2_dec));
+		panel_simple_of_get_cmd(dev, &d->desc, dsi_id);
+	} else if (dsi_panel == MIPI_DSI_ATLA101U3_V1B) {
+		memcpy(d, &atla101u3_v1b_dec, sizeof(atla101u3_v1b_dec));
 		panel_simple_of_get_cmd(dev, &d->desc, dsi_id);
 	}
 #else
