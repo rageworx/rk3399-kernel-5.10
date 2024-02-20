@@ -3291,6 +3291,7 @@ static void asus_write_resolution_to_file(char *buf, int writelen, int type)
 		if(!IS_ERR(fp))
 		{
 			kernel_write(fp, buf, writelen, &pos);
+			pr_info("%s: set HDMI resolution file to %s", __func__, buf);
 			filp_close(fp, NULL);
 		}
 		else
@@ -3298,10 +3299,11 @@ static void asus_write_resolution_to_file(char *buf, int writelen, int type)
 
 	}
 	else if(type == DRM_MODE_CONNECTOR_DisplayPort) {
-		fp = filp_open(ASUS_HDMI_RESOLUTION_FILE_PATH, O_WRONLY, 0644);
+		fp = filp_open(ASUS_DP_RESOLUTION_FILE_PATH, O_WRONLY, 0644);
 
 		if(!IS_ERR(fp)) {
 			kernel_write(fp, buf, writelen, &pos);
+			pr_info("%s: set DP resolution file to %s", __func__, buf);
 			filp_close(fp, NULL);
 		}
 		else
