@@ -1001,11 +1001,10 @@ static int ov5647_probe(struct i2c_client *client)
 	}
 	ret = clk_set_rate(sensor->xclk, OV5647_XVCLK_FREQ);
 	if (ret < 0) {
-		dev_err(dev, "Failed to set xvclk rate (24MHz)\n");
-		return ret;
+		dev_warn(dev, "Failed to set xvclk rate (24MHz), error %d\n", ret);
 	}
 	if (clk_get_rate(sensor->xclk) != OV5647_XVCLK_FREQ)
-		dev_warn(dev, "xvclk mismatched, modes are based on 24MHz\n");
+		dev_warn(dev, "xvclk mismatched(%ld), modes are based on 24MHz\n", clk_get_rate(sensor->xclk));
 
 	sensor->power_gpio = devm_gpiod_get(dev, "power", GPIOD_OUT_HIGH);
 	if (IS_ERR(sensor->power_gpio))
