@@ -596,8 +596,8 @@ static int is_boot_from_sd(void)
     return is_sd_boot;
 }
 
-#define DEFAULT_ROOT_DEVICE_PATH_SD "/dev/mmcblk1p8"
-#define DEFAULT_DATA_DEVICE_PATH_SD "/dev/mmcblk1p9"
+#define DEFAULT_ROOT_DEVICE_PATH_SD "/dev/mmcblk1p9"
+#define DEFAULT_DATA_DEVICE_PATH_SD "/dev/mmcblk1p10"
 void mount_overlay_on_rootfs_sd(void)
 {
 	static char *argv[] = { "/bin/bash", "/etc/init.d/overlayetc", DEFAULT_ROOT_DEVICE_PATH_SD, DEFAULT_DATA_DEVICE_PATH_SD, NULL, };
@@ -616,8 +616,8 @@ void mount_overlay_on_rootfs_sd(void)
 	printk("mount_overlay_on_rootfs_sd  /etc/init.d/overlayetc-\n");
 }
 
-#define DEFAULT_ROOT_DEVICE_PATH_EMMC "/dev/mmcblk0p8"
-#define DEFAULT_DATA_DEVICE_PATH_EMMC "/dev/mmcblk0p9"
+#define DEFAULT_ROOT_DEVICE_PATH_EMMC "/dev/mmcblk0p9"
+#define DEFAULT_DATA_DEVICE_PATH_EMMC "/dev/mmcblk0p10"
 void mount_overlay_on_rootfs_emmc(void)
 {
 	static char *argv[] = { "/bin/bash", "/etc/init.d/overlayetc", DEFAULT_ROOT_DEVICE_PATH_EMMC, DEFAULT_DATA_DEVICE_PATH_EMMC, NULL, };
