@@ -65,6 +65,9 @@ extern void lt9211_lvds_pattern_config(void);
 extern void lt9211_lvds_power_on(void);
 extern void lt9211_lvds_power_off(void);
 #else
+// Prevent error to unused-function warning = failure.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
 static void lt9211_loader_protect(bool on) { return ; }
 static void lt9211_bridge_enable(int t) { return ; }
 static void lt9211_bridge_disable(void) { return ; }
@@ -72,8 +75,9 @@ static bool lt9211_is_connected(void) { return false; }
 static void lt9211_set_videomode(struct videomode vm) { return ; }
 static bool lt9211_test_pattern(void) { return false; }
 static void lt9211_lvds_pattern_config(void) { return ; }
-static void lt9211_lvds_power_on(void) { return ; }
+static  void lt9211_lvds_power_on(void) { return ; }
 static void lt9211_lvds_power_off(void) { return ; }
+#pragma GCC diagnostic pop
 #endif
 
 #if defined(CONFIG_TINKER_MCU)
@@ -235,12 +239,12 @@ static void panel_simple_sleep(unsigned int msec)
 		usleep_range(msec * 1000, (msec + 1) * 1000);
 }
 
-static inline void panel_simple_msleep(unsigned int msecs)
+static  void panel_simple_msleep(unsigned int msecs)
 {
 	usleep_range(msecs * 1000, msecs * 1000 + 100);
 }
 
-static inline struct panel_simple *to_panel_simple(struct drm_panel *panel)
+static  struct panel_simple *to_panel_simple(struct drm_panel *panel)
 {
 	return container_of(panel, struct panel_simple, base);
 }
